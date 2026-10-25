@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Προβολή Κουτιού</title>
+<meta name="description" content="Το σχέδιο ενός Κουτιού από το QR της ετικέτας: μόνο το 3D, για όποιον σαρώνει.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600&family=Fira+Mono&display=swap" rel="stylesheet">
+<style>
+:root { --bg: #F1F3F2; --surface: #FFFFFF; --fg: #1B2220; --muted: #5C6865; --line: #D3D9D7; --accent: #0D6970; --warn: #B3261E; --viewer: #E3E8E6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #121716; --surface: #1A2120; --fg: #E6ECEA; --muted: #98A6A2; --line: #2D3836; --accent: #5CC3CA; --warn: #FF8A80; --viewer: #0D1110; color-scheme: dark; } }
+:root[data-theme="dark"] { --bg: #121716; --surface: #1A2120; --fg: #E6ECEA; --muted: #98A6A2; --line: #2D3836; --accent: #5CC3CA; --warn: #FF8A80; --viewer: #0D1110; color-scheme: dark; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.4 "Fira Sans", system-ui, sans-serif; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+header { padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface); display: grid; gap: 2px; }
+h1 { margin: 0; font-size: 17px; font-weight: 600; }
+.ypo { color: var(--muted); font-size: 13px; }
+.kommati { font-family: "Fira Mono", monospace; font-size: 14px; }
+.kommati b { color: var(--accent); }
+main { position: relative; background: var(--viewer); }
+#viewer3d { position: absolute; inset: 0; touch-action: none; }
+#viewer3d canvas { display: block; width: 100%; height: 100%; }
+.msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); pointer-events: none; }
+.msg.lathos { color: var(--warn); }
+.msg[hidden], .explode[hidden], .odigia[hidden] { display: none; }
+.odigia { position: absolute; left: 0; right: 0; bottom: 0; padding: 6px 16px calc(6px + env(safe-area-inset-bottom)); font-size: 12px; color: var(--muted); text-align: center; pointer-events: none; }
+.explode { position: absolute; right: 12px; top: 12px; display: flex; gap: 8px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; font-size: 12px; }
+.explode input { width: 110px; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<header>
+  <h1 id="titlos">Προβολή Κουτιού</h1>
+  <div class="ypo" id="ypotitlos">Από το QR της ετικέτας.</div>
+  <div class="kommati" id="kommati"></div>
+</header>
+<main>
+  <div id="viewer3d"></div>
+  <div class="msg" id="msg">Φορτώνει το σχέδιο…</div>
+  <label class="explode" id="explodeBox" hidden>Άνοιγμα <input type="range" id="rg-explode" min="0" max="100" step="1" value="0" aria-label="Explode: τα κομμάτια φεύγουν με τη σειρά της συναρμολόγησης"></label>
+  <div class="odigia" id="odigia" hidden>Σύρε για να γυρίσεις, δύο δάχτυλα για ζουμ. Το κομμάτι της ετικέτας είναι φωτισμένο.</div>
+</main>
+<script type="module" src="src/provoli.js"></script>
+</body>
+</html>
