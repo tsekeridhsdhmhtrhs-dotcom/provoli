@@ -3,6 +3,7 @@
 // φέρνει την έτοιμη Σκηνή (κουτάκια με θέση, χρώμα και πού φεύγουν στο explode, src/core/syndesmos.js) και η
 // skini3d.js μόνο τη ζωγραφίζει. Τίποτα δεν αποθηκεύεται, τίποτα δεν αλλάζει.
 import { neaSkini3d } from './skini3d.js';
+import { diavaseKartaHash, ennoiaKodikou, grammesKartas } from './provoli-karta.js';
 
 const MORFI_SKINIS = 2;
 const $ = (id) => document.getElementById(id);
@@ -29,9 +30,34 @@ async function apoSyndesmo(hash) {
 // ---------- σελίδα ----------
 const view = neaSkini3d($('viewer3d'));
 let fortomeno = null;
+// Κάρτα κομματιού (#334): κομμάτι χωρίς 3D (Κομμάτια SketchUp, Έξτρα). Με τα στοιχεία του συνδέσμου δείχνει τη λίστα τους,
+// χωρίς αυτά τον κωδικό και τι σημαίνει. Ποτέ σελίδα σφάλματος.
+async function deixeKarta(r) {
+  $('msg').hidden = true;
+  $('odigia').hidden = true;
+  $('explodeBox').hidden = true;
+  $('viewer3d').hidden = true;
+  $('karta').hidden = false;
+  const k = r.karta;
+  $('titlos').textContent = k ? [k.j, k.o || k.e].filter(Boolean).join(' · ') || 'Κομμάτι' : 'Κομμάτι ετικέτας';
+  $('ypotitlos').textContent = k ? ennoiaKodikou(r.kodikos) : 'Από το QR της ετικέτας.';
+  const b = document.createElement('b'); b.textContent = r.kodikos; $('kommati').replaceChildren(b);
+  const grammes = k ? grammesKartas(k) : [['Τι σημαίνει', ennoiaKodikou(r.kodikos)], ['Στοιχεία', 'Ο σύνδεσμος δεν έφερε τα στοιχεία του κομματιού. Δες τα στην ετικέτα.']];
+  // createElement + textContent, όχι innerHTML: τα στοιχεία έρχονται από τον σύνδεσμο
+  $('kartaGrammes').replaceChildren(...grammes.flatMap(([o, v]) => {
+    const dt = document.createElement('dt'), dd = document.createElement('dd');
+    dt.textContent = o; dd.textContent = v;
+    return [dt, dd];
+  }));
+  fortomeno = { karta: k, kodikos: r.kodikos };
+}
 async function fortose() {
   const msg = $('msg');
   try {
+    const karta = await diavaseKartaHash(location.hash);
+    if (karta) { await deixeKarta(karta); return; }
+    $('karta').hidden = true;
+    $('viewer3d').hidden = false;
     const { skini, kommatiId } = await apoSyndesmo(location.hash);
     const part = kommatiId ? skini.p.find((p) => p[0] === kommatiId) : null;
     const ta = skini.p.filter((p) => !['legrabox', 'gyali', 'alouminio'].includes(p[1])).length;

@@ -3,6 +3,7 @@
 // μπορεί να βρίσκεται σε δημόσιες σελίδες: την Προβολή του QR και τη σελίδα του server (ADR 0018).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { mesaioPan } from './pan3d.js';
 
 const S = 0.001; // mm → m
 const XROMATA = { kormos: 0xE8E5DE, xorisma: 0xE2DFD7, rafi: 0xDCD8CF, kinito: 0xEFEBE3, plati: 0xB7AD9B, podia: 0x2E3331, porta: 0xF2EFE8, fatsa: 0xE8E5DE, syrtaria: 0xDCD8CF, syrtari: 0x4A4541, legrabox: 0x9AA1A5, gyali: 0xBFDDE0, alouminio: 0x9AA1A5 };
@@ -10,11 +11,17 @@ const EPILOGI = 0x13A3AD;
 const METALLO = new Set(['legrabox', 'alouminio']);
 const GONIA_ANOIGMATOS = 100 * Math.PI / 180;
 const GONIA_EXPLODE = 90 * Math.PI / 180;
+/**
+ * Πόρτα: ο άξονας που γυρίζει είναι τόσα mm έξω από την άκρη της, στο πίσω της. Ο μεντεσές Blum 110° έχει προεξοχή:
+ * ανοιχτή, η πόρτα βγαίνει μπροστά και έξω από το πλαϊνό, όχι πάνω του (#114). Μόνο εμφάνιση· το ίδιο νούμερο στο
+ * viewer3d.js, γιατί η Προβολή δεν φορτώνει τίποτα του εργαλείου (ADR 0018). Προς επιβεβαίωση από τον κατάλογο της Blum.
+ */
+const PROEXOXI_PORTAS = 5;
 const omala = (u) => { const x = Math.min(1, Math.max(0, u)); return x * x * (3 - 2 * x); };
 
 function xromaEidous(eidos, c) {
   const [kormos, metopa, plati, esoteriko] = c ?? [];
-  const apoKatalogo = { kormos, porta: metopa, fatsa: metopa, plati, rafi: esoteriko, kinito: esoteriko, xorisma: esoteriko }[eidos];
+  const apoKatalogo = { kormos, porta: metopa, fatsa: metopa, plati, rafi: esoteriko, kinito: esoteriko, xorisma: esoteriko, syrtaria: esoteriko }[eidos];
   return apoKatalogo ?? XROMATA[eidos] ?? XROMATA.kormos;
 }
 
@@ -32,6 +39,7 @@ export function neaSkini3d(el) {
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   controls.dampingFactor = 0.12;
+  mesaioPan(renderer.domElement, controls, { rotate: THREE.MOUSE.ROTATE });
   scene.add(new THREE.HemisphereLight(0xffffff, 0x8a908d, 1.6));
   const d1 = new THREE.DirectionalLight(0xffffff, 1.6); d1.position.set(2.5, 4, 3.5); scene.add(d1);
   const d2 = new THREE.DirectionalLight(0xffffff, 0.6); d2.position.set(-3, 2, -2); scene.add(d2);
@@ -88,10 +96,10 @@ export function neaSkini3d(el) {
       mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), lineMat));
       let obj = mesh;
       if (pleura === 1 || pleura === -1) {
-        // πόρτα: γυρίζει γύρω από την άκρη των μεντεσέδων
+        // πόρτα: γυρίζει γύρω από άξονα έξω από την άκρη των μεντεσέδων (PROEXOXI_PORTAS)
         const pivot = new THREE.Group();
-        pivot.position.set((pleura === 1 ? x : x + dx) * S, (y + dy / 2) * S, z * S);
-        mesh.position.set(pleura * dx / 2 * S, 0, dz / 2 * S);
+        pivot.position.set(((pleura === 1 ? x : x + dx) - pleura * PROEXOXI_PORTAS) * S, (y + dy / 2) * S, z * S);
+        mesh.position.set(pleura * (PROEXOXI_PORTAS + dx / 2) * S, 0, dz / 2 * S);
         pivot.add(mesh);
         portes.push({ pivot, fora: pleura });
         obj = pivot;
