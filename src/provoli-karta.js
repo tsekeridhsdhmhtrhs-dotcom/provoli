@@ -76,3 +76,53 @@ export function grammesKartas(k) {
   bale('Θέσεις', Array.isArray(k.s) ? k.s.join(' · ') : '');
   return out;
 }
+
+const thetikosArithmos = (/** @type {unknown} */ v) => typeof v === 'number' && Number.isFinite(v) && v > 0;
+
+/**
+ * Το σχέδιο του κομματιού για το 3D (#346), μόνο από την κάρτα του URL: μέτρα, τελικό, φάλτσο, PVC. Τρύπες και κινησιά
+ * δεν υπάρχουν στο URL ως σχήμα (μόνο τα ονόματα των .mpr), άρα δεν ζωγραφίζονται. Μονάδα το mm, x το μήκος, y το πλάτος,
+ * z το πάχος. Ζωγραφίζεται το τελικό όταν υπάρχει (3D στο τελικό, ADR 0019). Φάλτσο 45°: η πάνω όψη κρατάει όλο το
+ * μήκος και η κάτω μικραίνει όσο το πάχος (η κάρτα δεν γράφει ποια όψη κρατάει, υπόθεση, προς επιβεβαίωση).
+ * Πλευρές όπως στο CONTEXT: S1, S2 οι κοντές στις άκρες του μήκους (x = 0, x = μήκος), L1, L2 οι μακριές (y = 0, y = πλάτος).
+ * Κορυφές: 0–3 κάτω όψη, 4–7 πάνω, και οι δύο αντίστροφα από το (0,0). Επιστρέφει null αν τα μέτρα λείπουν ή δεν είναι έγκυρα.
+ * @param {Record<string, any> | null | undefined} k
+ * @returns {{ mikos: number, platos: number, paxos: number, teliko: boolean, korifes: number[][], faltso: string[], pvc: { pleura: string, korifes: number[][] }[] } | null}
+ */
+export function sxedioKommatiou(k) {
+  if (!k || !Array.isArray(k.m) || k.m.length < 3 || !k.m.slice(0, 3).every(thetikosArithmos)) return null;
+  const [m0, m1, paxos] = k.m;
+  const teliko = Array.isArray(k.f) && k.f.length >= 2 && thetikosArithmos(k.f[0]) && thetikosArithmos(k.f[1]);
+  const mikos = teliko ? k.f[0] : m0, platos = teliko ? k.f[1] : m1;
+  const faltso = (Array.isArray(k.fa) ? k.fa : []).filter((/** @type {string} */ s) => ['L1', 'L2', 'S1', 'S2'].includes(s));
+  const eos = (/** @type {string} */ s) => faltso.includes(s);
+  // η κάτω όψη κλείνει το πολύ ως τη μέση
+  const px = Math.min(paxos, mikos / 2), py = Math.min(paxos, platos / 2);
+  const x0 = eos('S1') ? px : 0, x1 = mikos - (eos('S2') ? px : 0), y0 = eos('L1') ? py : 0, y1 = platos - (eos('L2') ? py : 0);
+  const korifes = [[x0, y0, 0], [x1, y0, 0], [x1, y1, 0], [x0, y1, 0], [0, 0, paxos], [mikos, 0, paxos], [mikos, platos, paxos], [0, platos, paxos]];
+  const OPSEIS = { L1: [0, 1, 5, 4], S2: [1, 2, 6, 5], L2: [2, 3, 7, 6], S1: [3, 0, 4, 7] };
+  // PVC μόνο σε σόκορο χωρίς φάλτσο (ADR 0019)
+  const pvc = (Array.isArray(k.p) ? k.p : []).filter((/** @type {string} */ s) => s in OPSEIS && !eos(s))
+    .map((/** @type {keyof typeof OPSEIS} */ pleura) => ({ pleura, korifes: OPSEIS[pleura].map((i) => korifes[i]) }));
+  return { mikos, platos, paxos, teliko, korifes, faltso, pvc };
+}
+
+/**
+ * Από ποια μεριά να κοιτάει η κάμερα για να φαίνονται τα PVC (αλλιώς το φάλτσο): [πρόσημο στο μήκος, πρόσημο στο πλάτος].
+ * S1 στο x = 0 (−), S2 στο x = μήκος (+), L1 στο y = 0 (−), L2 στο y = πλάτος (+). Όταν δεν ορίζεται (καμία, ή οι δύο απέναντι), +.
+ * @param {NonNullable<ReturnType<typeof sxedioKommatiou>>} s @returns {[number, number]}
+ */
+export function meriaKameras(s) {
+  const pleures = s.pvc.length ? s.pvc.map((p) => p.pleura) : s.faltso;
+  const proso = (/** @type {string} */ a, /** @type {string} */ b) => { const d = (pleures.includes(b) ? 1 : 0) - (pleures.includes(a) ? 1 : 0); return d || 1; };
+  return [proso('S1', 'S2'), proso('L1', 'L2')];
+}
+
+/**
+ * Η γραμμή της μπάντας στο πάνω μέρος της κάρτας: «ΕΠΙΠΛΟ: … · ΟΜΑΔΑ: …», μόνο από όσα έχει η κάρτα (e, o). Κενό αν δεν υπάρχει κανένα.
+ * @param {Record<string, any> | null | undefined} k
+ */
+export function bandaEpiplouOmadas(k) {
+  const t = (/** @type {unknown} */ v) => String(v ?? '').trim();
+  return [t(k?.e) && `ΕΠΙΠΛΟ: ${t(k?.e)}`, t(k?.o) && `ΟΜΑΔΑ: ${t(k?.o)}`].filter(Boolean).join(' · ');
+}

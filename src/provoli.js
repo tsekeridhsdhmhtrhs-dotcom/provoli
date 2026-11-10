@@ -1,9 +1,10 @@
 // Σελίδα Προβολής (#20, 8Β): ανοίγει από το QR της ετικέτας και δείχνει μόνο το 3D ενός Κουτιού, με το κομμάτι της
 // ετικέτας φωτισμένο. Η σελίδα είναι δημόσια, οπότε δεν φορτώνει τίποτα από τον πυρήνα του εργαλείου: ο σύνδεσμος
 // φέρνει την έτοιμη Σκηνή (κουτάκια με θέση, χρώμα και πού φεύγουν στο explode, src/core/syndesmos.js) και η
-// skini3d.js μόνο τη ζωγραφίζει. Τίποτα δεν αποθηκεύεται, τίποτα δεν αλλάζει.
-import { neaSkini3d } from './skini3d.js';
-import { diavaseKartaHash, ennoiaKodikou, grammesKartas } from './provoli-karta.js';
+// skini3d.js μόνο τη ζωγραφίζει. Τίποτα δεν αποθηκεύεται, τίποτα δεν αλλάζει. Η κάρτα κομματιού (#334, #346) δείχνει πάνω το
+// κομμάτι σε 3D (kommati3d.js) και από κάτω τα στοιχεία. Και τα δύο 3D φορτώνονται μόνο όταν χρειαστούν (import()), ώστε χωρίς
+// WebGL, ή αν δεν φορτώσει το three, να μένει η κάρτα.
+import { diavaseKartaHash, ennoiaKodikou, grammesKartas, sxedioKommatiou, bandaEpiplouOmadas } from './provoli-karta.js';
 
 const MORFI_SKINIS = 2;
 const $ = (id) => document.getElementById(id);
@@ -28,8 +29,39 @@ async function apoSyndesmo(hash) {
 }
 
 // ---------- σελίδα ----------
-const view = neaSkini3d($('viewer3d'));
+// Το 3D φορτώνεται όταν χρειαστεί και πιάνεται το σφάλμα του: χωρίς WebGL (ή αν δεν φορτώσει το three) μένει η κάρτα, όχι λευκή σελίδα
+const exeiWebgl = () => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; } };
+let view = null;
+async function skini3d() {
+  view ??= (await import('./skini3d.js')).neaSkini3d($('viewer3d'));
+  return view;
+}
 let fortomeno = null;
+// Το κομμάτι της κάρτας σε 3D (#346), πάνω από τη λίστα. Όποιο σφάλμα και να βγει, το κουτί κρύβεται και μένει η κάρτα.
+let k3 = null;
+async function deixe3dKommatiou(karta) {
+  const box = $('kommati3d');
+  box.hidden = true;
+  $('kommati3dYpo').hidden = true;
+  if (window.provoli) window.provoli.kommati3d = undefined;
+  const sxedio = sxedioKommatiou(karta);
+  if (!sxedio || !exeiWebgl()) return;
+  try {
+    box.hidden = false;
+    // ένα 3D για όλη τη ζωή της σελίδας· νέος σύνδεσμος (hashchange) ζωγραφίζει ξανά στο ίδιο
+    k3 ??= (await import('./kommati3d.js')).neoKommati3d(box);
+    k3.zografise(sxedio);
+    const ypo = [sxedio.teliko ? 'Σχέδιο στο τελικό μέτρο' : '', sxedio.pvc.length ? 'κόκκινο = PVC' : ''].filter(Boolean).join(' · ');
+    $('kommati3dYpo').textContent = ypo;
+    $('kommati3dYpo').hidden = !ypo;
+    window.provoli.kommati3d = { zografistike: true, kamera: k3.kamera };
+  } catch {
+    box.hidden = true;
+    $('kommati3dYpo').hidden = true;
+    box.replaceChildren();
+    k3 = null;
+  }
+}
 // Κάρτα κομματιού (#334): κομμάτι χωρίς 3D (Κομμάτια SketchUp, Έξτρα). Με τα στοιχεία του συνδέσμου δείχνει τη λίστα τους,
 // χωρίς αυτά τον κωδικό και τι σημαίνει. Ποτέ σελίδα σφάλματος.
 async function deixeKarta(r) {
@@ -49,7 +81,11 @@ async function deixeKarta(r) {
     dt.textContent = o; dd.textContent = v;
     return [dt, dd];
   }));
+  const banda = bandaEpiplouOmadas(k);
+  $('bandaEpiplou').textContent = banda;
+  $('bandaEpiplou').hidden = !banda;
   fortomeno = { karta: k, kodikos: r.kodikos };
+  await deixe3dKommatiou(k);
 }
 async function fortose() {
   const msg = $('msg');
@@ -58,6 +94,7 @@ async function fortose() {
     if (karta) { await deixeKarta(karta); return; }
     $('karta').hidden = true;
     $('viewer3d').hidden = false;
+    if (!exeiWebgl()) throw new Error('Το 3D χρειάζεται WebGL και αυτό το πρόγραμμα περιήγησης δεν το έχει.');
     const { skini, kommatiId } = await apoSyndesmo(location.hash);
     const part = kommatiId ? skini.p.find((p) => p[0] === kommatiId) : null;
     const ta = skini.p.filter((p) => !['legrabox', 'gyali', 'alouminio'].includes(p[1])).length;
@@ -72,15 +109,15 @@ async function fortose() {
     msg.hidden = true;
     $('odigia').hidden = false;
     $('explodeBox').hidden = false;
-    view.zografise(skini, kommatiId, anoixtes);
+    (await skini3d()).zografise(skini, kommatiId, anoixtes);
   } catch (err) {
     msg.hidden = false;
     msg.className = 'msg lathos';
     msg.textContent = err?.message ?? 'Το σχέδιο δεν ανοίγει.';
   }
 }
-$('rg-explode').addEventListener('input', (e) => view.explode(Number(e.target.value) / 100));
-$('rg-explode').addEventListener('change', () => view.kadro());
+$('rg-explode').addEventListener('input', (e) => view?.explode(Number(e.target.value) / 100));
+$('rg-explode').addEventListener('change', () => view?.kadro());
 window.addEventListener('hashchange', fortose);
 window.provoli = { get fortomeno() { return fortomeno; } };
 fortose();
