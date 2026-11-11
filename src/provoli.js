@@ -4,7 +4,7 @@
 // skini3d.js μόνο τη ζωγραφίζει. Τίποτα δεν αποθηκεύεται, τίποτα δεν αλλάζει. Η κάρτα κομματιού (#334, #346) δείχνει πάνω το
 // κομμάτι σε 3D (kommati3d.js) και από κάτω τα στοιχεία. Και τα δύο 3D φορτώνονται μόνο όταν χρειαστούν (import()), ώστε χωρίς
 // WebGL, ή αν δεν φορτώσει το three, να μένει η κάρτα.
-import { diavaseKartaHash, ennoiaKodikou, grammesKartas, sxedioKommatiou, bandaEpiplouOmadas } from './provoli-karta.js';
+import { diavaseKartaHash, ennoiaKodikou, grammesKartas, sxedioKommatiou, sxedioEpiplou, bandaEpiplouOmadas } from './provoli-karta.js';
 
 const MORFI_SKINIS = 2;
 const $ = (id) => document.getElementById(id);
@@ -37,9 +37,23 @@ async function skini3d() {
   return view;
 }
 let fortomeno = null;
-// Το κομμάτι της κάρτας σε 3D (#346), πάνω από τη λίστα. Όποιο σφάλμα και να βγει, το κουτί κρύβεται και μένει η κάρτα.
+// Πόσο περιμένει η σελίδα το αρχείο επίπλου πριν δείξει μόνο το κομμάτι (#355): του σχεδίου, όχι κανόνας
+const XRONOS_EPIPLOU_MS = 8000;
+// Το αρχείο επίπλου της Δουλειάς (#355): «e/<id>.json» δίπλα στη σελίδα (repo provoli). Αν λείπει, αργεί ή δεν έχει το
+// κομμάτι, null: μένει μόνο το κομμάτι (#346), χωρίς σφάλμα.
+async function fereEpiplo(id, karta) {
+  if (!id || !karta) return null;
+  const stamata = new AbortController();
+  const xronos = setTimeout(() => stamata.abort(), XRONOS_EPIPLOU_MS);
+  try {
+    const a = await fetch(new URL(`e/${id}.json`, location.href), { cache: 'no-cache', signal: stamata.signal });
+    return a.ok ? sxedioEpiplou(await a.json(), karta) : null;
+  } catch { return null; } finally { clearTimeout(xronos); }
+}
+// Το κομμάτι της κάρτας σε 3D (#346), πάνω από τη λίστα· με αρχείο επίπλου όλο το έπιπλο, φωτεινό το κομμάτι (#355).
+// Όποιο σφάλμα και να βγει, το κουτί κρύβεται και μένει η κάρτα.
 let k3 = null;
-async function deixe3dKommatiou(karta) {
+async function deixe3dKommatiou(karta, arxeio) {
   const box = $('kommati3d');
   box.hidden = true;
   $('kommati3dYpo').hidden = true;
@@ -47,14 +61,24 @@ async function deixe3dKommatiou(karta) {
   const sxedio = sxedioKommatiou(karta);
   if (!sxedio || !exeiWebgl()) return;
   try {
+    const epiplo = await fereEpiplo(arxeio, karta);
     box.hidden = false;
     // ένα 3D για όλη τη ζωή της σελίδας· νέος σύνδεσμος (hashchange) ζωγραφίζει ξανά στο ίδιο
     k3 ??= (await import('./kommati3d.js')).neoKommati3d(box);
-    k3.zografise(sxedio);
-    const ypo = [sxedio.teliko ? 'Σχέδιο στο τελικό μέτρο' : '', sxedio.pvc.length ? 'κόκκινο = PVC' : ''].filter(Boolean).join(' · ');
+    let ypo;
+    if (epiplo) {
+      k3.zografiseEpiplo(epiplo);
+      const alla = epiplo.kommatia.length - epiplo.fotismena;
+      ypo = `Φωτεινό = το κομμάτι της ετικέτας${epiplo.fotismena > 1 ? ` (${epiplo.fotismena} ίδια)` : ''} · αχνά = ${alla === 1 ? 'το άλλο 1' : `τα άλλα ${alla}`} του επίπλου`;
+      box.setAttribute('aria-label', 'Όλο το έπιπλο σε 3D, φωτεινό το κομμάτι της ετικέτας: σύρε για να γυρίσεις, δύο δάχτυλα για ζουμ');
+    } else {
+      k3.zografise(sxedio);
+      ypo = [sxedio.teliko ? 'Σχέδιο στο τελικό μέτρο' : '', sxedio.pvc.length ? 'κόκκινο = PVC' : ''].filter(Boolean).join(' · ');
+      box.setAttribute('aria-label', 'Το κομμάτι σε 3D: σύρε για να γυρίσεις, δύο δάχτυλα για ζουμ');
+    }
     $('kommati3dYpo').textContent = ypo;
     $('kommati3dYpo').hidden = !ypo;
-    window.provoli.kommati3d = { zografistike: true, kamera: k3.kamera };
+    window.provoli.kommati3d = { zografistike: true, epiplo: !!epiplo, kommatia: epiplo?.kommatia.length ?? 1, fotismena: epiplo?.fotismena ?? 1, kamera: k3.kamera };
   } catch {
     box.hidden = true;
     $('kommati3dYpo').hidden = true;
@@ -85,7 +109,7 @@ async function deixeKarta(r) {
   $('bandaEpiplou').textContent = banda;
   $('bandaEpiplou').hidden = !banda;
   fortomeno = { karta: k, kodikos: r.kodikos };
-  await deixe3dKommatiou(k);
+  await deixe3dKommatiou(k, r.arxeio);
 }
 async function fortose() {
   const msg = $('msg');

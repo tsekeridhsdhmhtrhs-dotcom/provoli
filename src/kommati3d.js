@@ -1,6 +1,7 @@
 // Το κομμάτι της κάρτας σε 3D (#346): ένα ορθογώνιο κομμάτι με φάλτσο και PVC, από το σχέδιο της provoli-karta.js
-// (sxedioKommatiou). Περιστροφή με ένα δάχτυλο, pinch-zoom με δύο (OrbitControls). Δεν φορτώνει τίποτα από τον πυρήνα και
-// δεν υπολογίζει διαστάσεις· μόνο ζωγραφίζει ό,τι της δίνουν (ADR 0018). Τρύπες και κινησιά δεν ζωγραφίζονται: δεν υπάρχουν
+// (sxedioKommatiou). Ή (#355) όλο το έπιπλο από το αρχείο επίπλου (sxedioEpiplou): τα κομμάτια αχνά, της ετικέτας
+// φωτεινό. Περιστροφή με ένα δάχτυλο, pinch-zoom με δύο (OrbitControls). Δεν φορτώνει τίποτα από τον πυρήνα και δεν
+// υπολογίζει διαστάσεις· μόνο ζωγραφίζει ό,τι της δίνουν (ADR 0018). Τρύπες και κινησιά δεν ζωγραφίζονται: δεν υπάρχουν
 // ως σχήμα στο URL της κάρτας και δεν προστίθενται στο QR (ADR 0047).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -10,8 +11,23 @@ import { meriaKameras } from './provoli-karta.js';
 const S = 0.001; // mm → m
 const XROMA_KORMOU = 0xE2DFD7;
 const XROMA_PVC = 0xC8372D; // το ίδιο κόκκινο με το Σημάδι PVC του SketchUp
+const XROMA_FOTISMENOU = 0xF28C1E; // το κομμάτι της ετικέτας μέσα στο έπιπλο (#355)
+const XROMA_AXNOU = 0xAEB6B2;
 // τα 6 ζεύγη τριγώνων των όψεων του «κουτιού» με κάτω 0–3 και πάνω 4–7 (προς τα έξω)
 const TRIGONA = [[0, 3, 2, 1], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]];
+
+/**
+ * Το «κουτί» των 8 κορυφών (κάτω 0–3, πάνω 4–7): δύο τρίγωνα ανά όψη, χωρίς κοινές κορυφές, για επίπεδη σκίαση.
+ * @param {THREE.Vector3[]} k
+ */
+function geometriaKoutiou(k) {
+  const pos = [];
+  for (const [a, b, c, d] of TRIGONA) for (const i of [a, b, c, a, c, d]) pos.push(k[i].x, k[i].y, k[i].z);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.computeVertexNormals();
+  return g;
+}
 
 /**
  * Ένα 3D μέσα στο el. zografise(sxedio): ζωγραφίζει το κομμάτι. kamera(): γωνία και απόσταση (για έλεγχο).
@@ -48,12 +64,7 @@ export function neoKommati3d(el) {
   function zografise(/** @type {NonNullable<ReturnType<typeof import('./provoli-karta.js').sxedioKommatiou>>} */ s) {
     katharise();
     const k = s.korifes.map((p) => simeio(p, s));
-    // δύο τρίγωνα ανά όψη, χωρίς κοινές κορυφές, για επίπεδη σκίαση
-    const pos = [];
-    for (const [a, b, c, d] of TRIGONA) for (const i of [a, b, c, a, c, d]) pos.push(k[i].x, k[i].y, k[i].z);
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    g.computeVertexNormals();
+    const g = geometriaKoutiou(k);
     const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: XROMA_KORMOU, roughness: 0.75, side: THREE.DoubleSide }));
     mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(g, 20), lineMat));
     group.add(mesh);
@@ -71,6 +82,35 @@ export function neoKommati3d(el) {
     // η κάμερα κοιτάει από τη μεριά των PVC (ή του φάλτσου), ώστε να φαίνονται από την αρχή
     const [mx, mz] = meriaKameras(s);
     katefthynsi = new THREE.Vector3(0.55 * mx, 0.7, 0.95 * mz).normalize();
+    kadro();
+  }
+
+  /**
+   * Όλο το έπιπλο (#355): κάθε κομμάτι ένα κουτί από τις 8 κορυφές του (mm, άξονες SketchUp: x δεξιά, y βάθος, z πάνω),
+   * φωτεινό το κομμάτι της ετικέτας και τα άλλα αχνά (διάφανα, χωρίς βάθος, ώστε να φαίνεται το φωτεινό από μέσα).
+   * Τα φάλτσα δεν ζωγραφίζονται εδώ: τα δείχνει το κομμάτι μόνο του και η κάρτα.
+   * @param {NonNullable<ReturnType<typeof import('./provoli-karta.js').sxedioEpiplou>>} s
+   */
+  function zografiseEpiplo(s) {
+    katharise();
+    const ola = s.kommatia.flatMap((k) => k.korifes);
+    const min = [0, 1, 2].map((i) => Math.min(...ola.map((p) => p[i]))), max = [0, 1, 2].map((i) => Math.max(...ola.map((p) => p[i])));
+    const m = min.map((v, i) => (v + max[i]) / 2);
+    // SketchUp (x, y, z πάνω) → three (x, y πάνω, z): το μπροστά του επίπλου (−y) προς την κάμερα (+z)
+    const simeio = (/** @type {number[]} */ p) => new THREE.Vector3((p[0] - m[0]) * S, (p[2] - m[2]) * S, -(p[1] - m[1]) * S);
+    const axno = new THREE.MeshStandardMaterial({ color: XROMA_AXNOU, roughness: 0.8, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide });
+    const fos = new THREE.MeshStandardMaterial({ color: XROMA_FOTISMENOU, emissive: 0x6A3000, roughness: 0.55, side: THREE.DoubleSide });
+    const grammiAxni = new THREE.LineBasicMaterial({ color: 0x5C6865, transparent: true, opacity: 0.35, depthWrite: false });
+    for (const k of s.kommatia) {
+      const g = geometriaKoutiou(k.korifes.map(simeio));
+      const mesh = new THREE.Mesh(g, k.fotismeno ? fos : axno);
+      // τα αχνά μετά το φωτεινό, ώστε να μη το σβήνουν
+      mesh.renderOrder = k.fotismeno ? 0 : 1;
+      mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(g, 20), k.fotismeno ? lineMat : grammiAxni));
+      group.add(mesh);
+    }
+    // από μπροστά, δεξιά και λίγο από πάνω, όπως το αξονομετρικό του Φύλλου Ομάδας
+    katefthynsi = new THREE.Vector3(0.55, 0.6, 0.95).normalize();
     kadro();
   }
 
@@ -99,6 +139,7 @@ export function neoKommati3d(el) {
 
   return {
     zografise,
+    zografiseEpiplo,
     kadro,
     /** Η γωνία γύρω από τον κατακόρυφο άξονα και η απόσταση της κάμερας από το κέντρο. */
     kamera: () => ({ gonia: controls.getAzimuthalAngle(), apostasi: camera.position.distanceTo(controls.target) }),
