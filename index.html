@@ -28,6 +28,10 @@ main { position: relative; background: var(--viewer); }
 .ypogrammi { color: var(--muted); font-size: 13px; margin: -6px 0 0; }
 .ypogrammi[hidden] { display: none; }
 #kommati3d[hidden] { display: none; }
+/* το κομμάτι μόνο του κάτω από το έπιπλο (#394): μικρότερο, με το σχήμα και το υλικό του */
+.mono-tou { position: relative; height: min(30vh, 240px); min-height: 160px; max-width: 560px; touch-action: none; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.mono-tou[hidden] { display: none; }
+.mono-tou canvas { display: block; width: 100%; height: 100%; }
 #kommati3d canvas { display: block; width: 100%; height: 100%; }
 .karta[hidden], #viewer3d[hidden] { display: none; }
 .karta dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; max-width: 560px; }
@@ -57,7 +61,7 @@ main { position: relative; background: var(--viewer); }
 </header>
 <main>
   <div id="viewer3d"></div>
-  <section class="karta" id="karta" hidden><div class="banda" id="bandaEpiplou" hidden></div><div id="kommati3d" hidden role="img" aria-label="Το κομμάτι σε 3D: σύρε για να γυρίσεις, δύο δάχτυλα για ζουμ"></div><div class="ypogrammi" id="kommati3dYpo" hidden></div><dl id="kartaGrammes"></dl></section>
+  <section class="karta" id="karta" hidden><div class="banda" id="bandaEpiplou" hidden></div><div id="kommati3d" hidden role="img" aria-label="Το κομμάτι σε 3D: σύρε για να γυρίσεις, δύο δάχτυλα για ζουμ"></div><div class="ypogrammi" id="kommati3dYpo" hidden></div><div id="monoTou" class="mono-tou" hidden role="img" aria-label="Το κομμάτι μόνο του σε 3D, με το σχήμα και το υλικό του: σύρε για να γυρίσεις, δύο δάχτυλα για ζουμ"></div><div class="ypogrammi" id="monoTouYpo" hidden></div><dl id="kartaGrammes"></dl></section>
   <div class="msg" id="msg">Φορτώνει το σχέδιο…</div>
   <label class="explode" id="explodeBox" hidden>Άνοιγμα <input type="range" id="rg-explode" min="0" max="100" step="1" value="0" aria-label="Explode: τα κομμάτια φεύγουν με τη σειρά της συναρμολόγησης"></label>
   <div class="odigia" id="odigia" hidden>Σύρε για να γυρίσεις, δύο δάχτυλα για ζουμ. Το κομμάτι της ετικέτας είναι φωτισμένο.</div>
